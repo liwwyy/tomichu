@@ -1,7 +1,7 @@
 {
-  "id": "age-reactions",
+  "id": "dm-status-reactions",
   "embed": {
-    "title": "Age",
+    "title": "DM Status",
     "content": "",
     "header": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {wings_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
     "footer": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {star_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
@@ -14,10 +14,9 @@
       "type": "info",
       "interaction": "reaction",
       "roles": [
-        { "emoji": "1_", "name": "15" },
-        { "emoji": "2_", "name": "16" },
-        { "emoji": "3_", "name": "17" },
-        { "emoji": "4_", "name": "18+" }
+        { "emoji": "1_", "name": "DMs Open" },
+        { "emoji": "2_", "name": "DMs Closed" },
+        { "emoji": "3_", "name": "Ask to DM" }
       ]
     }
   ]

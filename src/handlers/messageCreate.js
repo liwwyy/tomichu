@@ -1,4 +1,4 @@
-const { failEmbed } = require('../utils/embeds');
+const { failEmbed, plainEmbed } = require('../utils/embeds');
 
 function createMessageHandler(client, commands, doubleCommands, prefix, helpPrefix, onUnprefixedMessage) {
   return async function messageCreate(message) {
@@ -32,6 +32,12 @@ function createMessageHandler(client, commands, doubleCommands, prefix, helpPref
 
       const command = commands.get(commandName);
       if (!command) return;
+
+      if (command.disabled) {
+        return message
+          .reply({ embeds: [plainEmbed(command.disabledReason || 'This command is temporarily disabled')] })
+          .catch(() => {});
+      }
 
       try {
         await command.execute(message, args, client);

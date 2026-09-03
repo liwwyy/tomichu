@@ -5,6 +5,8 @@ const { clearGuild } = require('../features/uwulock');
 const command = {
   name: 'uwuclear',
   category: 'Fun',
+  disabled: true,
+  disabledReason: 'uwuclear is temporarily disabled',
   description: 'Clear every uwu-lock in this server',
   usage: 'uwuclear',
   example: ',uwuclear',

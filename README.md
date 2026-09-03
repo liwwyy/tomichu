@@ -53,6 +53,7 @@ src/
   utils/templates.js           loads self-role templates from templates/*.json
   utils/emojiResolver.js       resolves emoji names against tomichu's application emojis
   utils/registry.js            persisted self-role-registry.json (atomic reads/writes)
+  utils/roleResolve.js         resolves a role from a mention, ID, or exact name
   features/uwulock.js          tracks locked users per guild + the intercept/webhook/delete flow
   features/selfRoles.js        template -> roles/embed/components, plus all interaction/reaction handlers
   commands/                   prefix commands, auto-loaded by commands/index.js
@@ -150,28 +151,34 @@ anyway.
   - The text version also accepts an attached file/image and deletes your original `,say` message afterward.
   - If you send `,say` as a reply to another message (or pass `reply_to` on `/say` with a message ID), tomichu first posts a small quote embed ("Replying to X") showing what you replied to, then sends your actual message right after — both via the webhook, styled as you.
   - To get a message ID for `reply_to`: enable Developer Mode in Discord settings, then right-click a message → Copy Message ID. Only works for messages in the same channel.
+  - **`/say` is user-installable** (`ApplicationIntegrationType.UserInstall` + all three interaction contexts) — it works in DMs, group DMs, and servers tomichu itself isn't a member of. True webhook impersonation is only possible where tomichu actually has a guild channel to create a webhook in; everywhere else it automatically falls back to relaying the message as `**{display name}:** {content}` instead. Run `npm run deploy` after any change to slash command definitions, and users need to add the app to their account (not just a server) from tomichu's profile for this to show up outside servers it's in.
 
 ### Fun
 - `,bra` — random cup-size embed, just for fun
-- `,uwulock @member` / `,uwu @member` — toggle uwu-lock on a member: while locked, their future messages get uwuified and resent as them via webhook, original deleted. Running it again on an already-locked member removes the lock.
-- `,uwulock remove @member` / `,uwu remove @member` — explicitly remove a member's uwu-lock
-- `,uwuclear` — clear every uwu-lock in the server
-
-The uwulock commands require the `Manage Messages` permission to use, since they act on someone else's messages. Locks are in-memory per guild and reset if the bot restarts.
+- ~~`,uwulock @member` / `,uwu @member`~~ — **temporarily disabled** (flip `FEATURE_DISABLED` in `src/features/uwulock.js` back to `false`, and remove `disabled: true` from `src/commands/uwulock.js` + `src/commands/uwuclear.js`, to bring it back)
 
 ### Self Roles
 - `,sendembed <template_id>` — sends a self-role message built from a template in `templates/`, creating any missing roles first. Run it with no ID to see available template IDs. Requires `Manage Roles` on both you and the bot.
+- `,undoembed <message_id>` — deletes every role tracked from that self-role message, edits the message to a plain "undone" notice, clears its reactions, and removes it from the registry. Irreversible.
 
 **How it works:**
+- **Role-mention preview** — the embed description always lists every role the message controls as `{emoji}<@&role>`, generated fresh from the actual created role IDs each time — never something you write into the template by hand.
 - **Buttons** — each button's role ID is baked straight into its `custom_id`, so clicking one is fully stateless: no lookup needed, survives bot restarts automatically.
 - **Dropdowns (select menus)** — up to 5 groups per message, each its own select menu. On selection, the full option set for that menu is read from `data/self-role-registry.json` (keyed by message + section index) to correctly add newly-selected roles and remove deselected ones.
 - **Reactions** — a reaction alone can't carry any data, so `messageId + emoji name` is looked up in the same registry to find the bound role. This is why reactions specifically need the `data/self-role-registry.json` file to persist across restarts — buttons/dropdowns are stateless by design, but reactions have no other way to carry that information.
 - **Emoji** — every emoji in a template (decorative header/footer tokens like `{wings_t}`, or a role's own emoji like `1_`) is resolved against tomichu's own application emojis (uploaded via the Discord Developer Portal) at send-time. Templates never hardcode a snowflake ID, since those are per-bot and would break the moment a different bot account is used.
 - **Role colors** — `colorType: "gradient"` and `"holographic"` need the guild to be boosted enough for Discord's enhanced role colors. If role creation fails for that reason, tomichu automatically retries as a plain solid color instead of failing the whole template, and logs a warning so it's visible why a role isn't gradient/holographic.
+- **Reusing roles** — before creating any role (from a template, or from the commands below), tomichu checks for an existing role with the same name (case-insensitive) and reuses it instead of duplicating.
+- **Zero permissions** — every role tomichu creates gets an explicit empty permission set. Leaving `permissions` unset makes Discord silently copy whatever `@everyone` currently has onto the new role — this sidesteps that entirely.
 
+### Roles
+- `,mkroles <name1, name2, name3>` — creates multiple roles at once from a comma-separated list (max 25 per call), skipping any that already exist by name
+- `,delrolesbelow <role>` — deletes every deletable role positioned below the given role, with a confirm/cancel step first
+- `,delrolesbetween <role1> <role2>` — deletes every deletable role strictly between two given roles (order doesn't matter), with a confirm/cancel step first
 
+All three require `Manage Roles` on both you and the bot. The delete commands skip anything tomichu can't actually delete (managed/integration roles, roles above tomichu's own) rather than erroring on them — the confirm screen shows the real count of what will actually go.
 
-`src/commands/_templates/` has three ready-to-edit stub files
+### Blank templates for new Fun commands
 (`fun-placeholder-1.js`, `-2.js`, `-3.js`) with the full field reference
 commented at the top. They're **not** live commands — the loader skips
 anything that isn't directly inside `src/commands/`. To activate one:

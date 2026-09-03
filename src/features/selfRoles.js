@@ -11,6 +11,7 @@ const { addMessage, getMessage } = require('../utils/registry');
 const {
   ensureAppEmojisLoaded,
   resolveEmojiKey,
+  emojiMarkdown,
   emojiIdentifier,
   emojiReactionIdentifier,
   substituteEmojiTokens,
@@ -18,6 +19,7 @@ const {
 
 const ROLE_ACTION_DELAY_MS = 350;
 const REACTION_DELAY_MS = 350;
+const ROLE_MENTION_INDENT = 'ㅤㅤㅤㅤㅤ';
 
 // Fixed values Discord requires for the holographic role style — sending
 // any tertiaryColor at all forces these exact values regardless of what
@@ -28,7 +30,10 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function buildEmbed(client, template) {
+// Builds the description from header/content/footer plus a role-mention
+// preview block per section, so people can see exactly what they're
+// getting before they click/react/select anything.
+function buildEmbed(client, template, previewSections) {
   const e = template.embed ?? {};
   const embed = new EmbedBuilder();
 
@@ -36,11 +41,21 @@ function buildEmbed(client, template) {
   if (e.color) embed.setColor(e.color);
   if (e.thumbnail) embed.setThumbnail(e.thumbnail);
 
-  const lines = [e.header, e.content, e.divider, e.footer]
-    .map((line) => substituteEmojiTokens(client, line))
-    .filter((line) => line);
+  const showHeadings = previewSections.length > 1;
+  const bodyBlocks = previewSections.map((section) => {
+    const heading = showHeadings && section.heading ? `**${section.heading}**\n` : '';
+    const lines = section.entries.map(({ emojiKey, roleId }) => {
+      const emoji = emojiMarkdown(resolveEmojiKey(client, emojiKey));
+      return `${ROLE_MENTION_INDENT}${emoji}<@&${roleId}>`;
+    });
+    return heading + lines.join('\n');
+  });
 
-  if (lines.length) embed.setDescription(lines.join('\n'));
+  const parts = [e.header, e.content, bodyBlocks.join('\n\n'), e.footer]
+    .map((part) => substituteEmojiTokens(client, part))
+    .filter(Boolean);
+
+  if (parts.length) embed.setDescription(parts.join('\n\n'));
 
   return embed;
 }
@@ -58,24 +73,30 @@ function resolveRoleColorOptions(roleDef) {
   return {};
 }
 
-// Finds an existing role by name, or creates it. Gradient/holographic
-// colors require a high enough boost level — if that fails, falls back
-// to a solid color so the role (and the rest of the template) still goes
-// out instead of hard-failing the whole command.
+// Finds an existing role by name (case-insensitive), or creates it.
+// Every created role gets explicit `permissions: []` — Discord's API
+// silently copies @everyone's CURRENT permission set onto any new role
+// that omits this field, which is a well-known footgun.
 async function ensureRole(guild, roleDef) {
-  const existing = guild.roles.cache.find((role) => role.name === roleDef.name);
+  const existing = guild.roles.cache.find((role) => role.name.toLowerCase() === roleDef.name.toLowerCase());
   if (existing) return existing;
 
   const colorOptions = resolveRoleColorOptions(roleDef);
 
   try {
-    return await guild.roles.create({ name: roleDef.name, reason: 'tomichu self-role template', ...colorOptions });
+    return await guild.roles.create({
+      name: roleDef.name,
+      permissions: [],
+      reason: 'tomichu self-role template',
+      ...colorOptions,
+    });
   } catch (err) {
     if (colorOptions.colors) {
       console.warn(`Falling back to solid color for role "${roleDef.name}" (likely insufficient boost level):`, err.message);
       const fallback = roleDef.primary ? { color: roleDef.primary } : {};
       return guild.roles.create({
         name: roleDef.name,
+        permissions: [],
         reason: 'tomichu self-role template (color fallback)',
         ...fallback,
       });
@@ -95,35 +116,44 @@ async function ensureRolesForSection(guild, section) {
 }
 
 // Builds and sends one self-role message from a template: creates any
-// missing roles, builds the embed + UI for each section, sends it, and
-// writes a registry entry so interactions/reactions can be resolved
-// later without ever re-reading the template.
+// missing roles, builds the embed (with a role-mention preview) + UI for
+// each section, sends it, and writes a registry entry so
+// interactions/reactions/undoembed can be resolved later without ever
+// re-reading the template.
 async function sendTemplate(client, guild, channel, templateId) {
   const template = getTemplate(templateId);
   if (!template) return { ok: false, reason: 'not_found' };
 
   await ensureAppEmojisLoaded(client);
+  // Guilds with many roles can have a stale/partial role cache — same
+  // class of bug as the original "only 7 members" nickname issue.
+  await guild.roles.fetch();
 
-  const embed = buildEmbed(client, template);
   const components = [];
   const registrySections = [];
+  const previewSections = [];
   const reactionsToAdd = [];
 
   const sections = template.sections ?? [];
 
   for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
     const section = sections[sectionIndex];
+    const rolesWithDefs = await ensureRolesForSection(guild, section);
+    const roleIds = rolesWithDefs.map(({ role }) => role.id);
+
+    previewSections.push({
+      heading: section.placeholder || section.title || null,
+      entries: rolesWithDefs.map(({ roleDef, role }) => ({ emojiKey: roleDef.emoji, roleId: role.id })),
+    });
 
     if (section.interaction === 'reaction') {
-      const rolesWithDefs = await ensureRolesForSection(guild, section);
       const bindings = {};
       for (const { roleDef, role } of rolesWithDefs) {
         bindings[roleDef.emoji] = role.id;
         reactionsToAdd.push({ key: roleDef.emoji });
       }
-      registrySections[sectionIndex] = { interaction: 'reaction', bindings };
+      registrySections[sectionIndex] = { interaction: 'reaction', bindings, roleIds };
     } else if (section.interaction === 'dropdown') {
-      const rolesWithDefs = await ensureRolesForSection(guild, section);
       const options = rolesWithDefs.map(({ roleDef, role }) => ({
         label: roleDef.name,
         value: role.id,
@@ -138,9 +168,8 @@ async function sendTemplate(client, guild, channel, templateId) {
         .addOptions(options);
 
       components.push(new ActionRowBuilder().addComponents(select));
-      registrySections[sectionIndex] = { interaction: 'dropdown', roleIds: rolesWithDefs.map(({ role }) => role.id) };
+      registrySections[sectionIndex] = { interaction: 'dropdown', roleIds };
     } else if (section.interaction === 'buttons') {
-      const rolesWithDefs = await ensureRolesForSection(guild, section);
       const buttons = rolesWithDefs.map(({ roleDef, role }) =>
         new ButtonBuilder()
           .setCustomId(`selfrole:btn:${role.id}`)
@@ -153,10 +182,11 @@ async function sendTemplate(client, guild, channel, templateId) {
       for (let i = 0; i < buttons.length; i += 5) {
         components.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
       }
-      registrySections[sectionIndex] = { interaction: 'buttons' };
+      registrySections[sectionIndex] = { interaction: 'buttons', roleIds };
     }
   }
 
+  const embed = buildEmbed(client, template, previewSections);
   const message = await channel.send({ embeds: [embed], components });
 
   for (const { key } of reactionsToAdd) {
@@ -176,11 +206,7 @@ async function sendTemplate(client, guild, channel, templateId) {
     sections: registrySections,
   });
 
-  const roleCount = registrySections.reduce((total, section) => {
-    if (section.bindings) return total + Object.keys(section.bindings).length;
-    if (section.roleIds) return total + section.roleIds.length;
-    return total;
-  }, 0);
+  const roleCount = registrySections.reduce((total, section) => total + (section.roleIds?.length ?? 0), 0);
 
   return { ok: true, message, roleCount };
 }

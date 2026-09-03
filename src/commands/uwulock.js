@@ -7,6 +7,8 @@ const command = {
   name: 'uwulock',
   aliases: ['uwu'],
   category: 'Fun',
+  disabled: true,
+  disabledReason: 'uwulock is temporarily disabled',
   description: 'Toggle uwu-lock on a member — their messages get uwuified and resent as them via webhook',
   usage: 'uwulock @member\nuwulock remove @member',
   example: ',uwulock @user\n,uwulock remove @user',

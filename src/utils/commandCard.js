@@ -21,11 +21,14 @@ function buildUsageEmbed(command) {
 function buildHelpEmbed(commands, client) {
   const seen = new Set();
   const categories = new Map();
+  let visibleCount = 0;
 
   for (const command of commands.values()) {
     if (seen.has(command)) continue;
     seen.add(command);
+    if (command.disabled) continue;
 
+    visibleCount++;
     const category = command.category || 'General';
     if (!categories.has(category)) categories.set(category, []);
     categories.get(category).push(command.name);
@@ -34,7 +37,7 @@ function buildHelpEmbed(commands, client) {
   const embed = new EmbedBuilder()
     .setColor(COLORS.neutral)
     .setDescription('-# Discord bot goodies to goof around')
-    .setFooter({ text: `${commands.size} Command${commands.size === 1 ? '' : 's'}` });
+    .setFooter({ text: `${visibleCount} Command${visibleCount === 1 ? '' : 's'}` });
 
   if (client?.user) {
     embed.setAuthor({

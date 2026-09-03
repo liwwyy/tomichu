@@ -31,7 +31,7 @@ version.
 ```json
 {
   "title": "Pronouns",
-  "content": "⋆‧ㅤ°ㅤㅤ𓏲ּ𝄢 ㅤ𝒑𝒓𝒐𝒏𝒐𝒖𝒏𝒔 .",
+  "content": "",
   "header": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {wings_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
   "footer": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {star_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
   "divider": "",
@@ -46,9 +46,22 @@ version.
   `<:name:id>` markdown. Never hardcode a snowflake ID in a template —
   emoji IDs are per-bot, so a hardcoded ID from any other bot (including
   your old one) will just render as broken text.
+- `content` — optional extra line, rarely needed now since `title` plus
+  the auto-generated role-mention list (below) covers what it used to.
+  Leave it `""` unless you specifically want an extra line right after
+  the header.
 - `color` — the **embed's** side-color (a hex string or null), unrelated
   to any role color.
 - `thumbnail` — optional image URL, `null` if unused.
+
+**The role-mention preview is generated automatically** — you never write
+it into the template. For every section, the bot builds one line per role
+as `{indent}{emoji}<@&roleId>` (using the real role ID created for that
+role), and inserts the whole block between the header and footer. If a
+template has more than one section, each block gets a bold heading from
+that section's `placeholder`/`title` so a multi-dropdown message (like
+the gradient palette one) reads as clearly labeled groups instead of one
+long undifferentiated list.
 
 ## `sections[]`
 
@@ -104,6 +117,17 @@ Each section is one interactive group attached to the shared embed.
 ## Interaction handling (for later)
 
 Every emoji/button/select-value the bot ever hands out is resolved
-straight from a persisted `self-role-registry.json` entry (see earlier
-discussion) — never re-derived from the template at click-time. Templates
-are just the "what to build," the registry is the "what's actually live."
+straight from a persisted `data/self-role-registry.json` entry, never
+re-derived from the template at click-time. Templates are just the "what
+to build," the registry is the "what's actually live."
+
+## Role creation rules
+
+- **Reuse over duplication**: before creating any role, tomichu checks
+  for an existing role with the same name (case-insensitive) and reuses
+  it instead of creating a duplicate.
+- **Zero permissions, always**: every role tomichu creates gets an
+  explicit empty permission set. Omitting the `permissions` field when
+  creating a role causes Discord's API to silently copy whatever
+  `@everyone` currently has onto the new role — a well-known footgun this
+  sidesteps entirely.

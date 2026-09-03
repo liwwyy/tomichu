@@ -4,6 +4,11 @@ const { canManageMessages } = require('../utils/permissions');
 
 const uwuifier = new Uwuifier();
 
+// Feature-wide kill switch — flip to false to re-enable. Keeps existing
+// locks (if any) intact rather than clearing them, so nothing is lost by
+// disabling.
+const FEATURE_DISABLED = true;
+
 // guildId -> Set<userId>. In-memory only — locks reset on restart.
 const lockedUsers = new Map();
 
@@ -45,6 +50,7 @@ function clearGuild(guildId) {
 // author is locked, uwuifies their message, re-sends it via webhook as
 // them, and deletes the original. Returns true if it handled the message.
 async function handleLockedMessage(message) {
+  if (FEATURE_DISABLED) return false;
   if (!message.guild || !isLocked(message.guild.id, message.author.id)) return false;
   if (!message.content?.trim() && message.attachments.size === 0) return false;
 
