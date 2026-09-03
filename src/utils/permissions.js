@@ -8,6 +8,10 @@ function hasManageMessages(member) {
   return member.permissions.has(PermissionFlagsBits.ManageMessages);
 }
 
+function hasManageRoles(member) {
+  return member.permissions.has(PermissionFlagsBits.ManageRoles);
+}
+
 function isBotUser(member) {
   return member.user.bot;
 }
@@ -18,6 +22,14 @@ function canManageMessages(guild, channel) {
   const me = guild.members.me;
   if (!me) return false;
   return channel.permissionsFor(me)?.has(PermissionFlagsBits.ManageMessages) ?? false;
+}
+
+// Whether tomichu can create/assign roles in this guild — required for
+// ,sendembed.
+function canManageRoles(guild) {
+  const me = guild.members.me;
+  if (!me) return false;
+  return me.permissions.has(PermissionFlagsBits.ManageRoles);
 }
 
 // Whether tomichu is actually able to change this member's nickname:
@@ -42,8 +54,10 @@ function getEligibleMembers(guild, { includeBots = false } = {}) {
 module.exports = {
   hasManageNicknames,
   hasManageMessages,
+  hasManageRoles,
   isBotUser,
   canManageMember,
   canManageMessages,
+  canManageRoles,
   getEligibleMembers,
 };

@@ -17,11 +17,17 @@ hosting doesn't support a custom entry path — it just runs `node
 index.js` from wherever the repo lands.
 
 The bot needs the `Manage Nicknames` permission for the nick commands,
-`Manage Webhooks` for `,say` / `/say` to send impersonated messages, and
-`Manage Messages` for `,say` to delete the original command message
-afterward. If `Manage Messages` is missing, the impersonated message
-still sends fine, but the original `,say` message stays and a warning is
-logged to the console.
+`Manage Webhooks` for `,say` / `/say` to send impersonated messages,
+`Manage Messages` for `,say` and uwulock to delete original messages, and
+`Manage Roles` (with tomichu's role positioned above whatever it needs to
+create/assign) for `,sendembed`. If `Manage Messages` is missing for
+`,say`, the impersonated message still sends fine, but the original
+message stays and a warning is logged to the console.
+
+For reactions to actually work as roles, tomichu also needs the
+`Server Members Intent` and `Message Content Intent` enabled in the
+Discord Developer Portal (Bot settings), same as any bot that reads
+message content or full member lists.
 
 ## Structure
 
@@ -44,15 +50,20 @@ src/
   utils/webhook.js            finds/creates tomichu's per-channel webhook, sends impersonated messages
   utils/quoteEmbed.js         builds the "Replying to X" quote embed for ,say
   utils/uwuifier.js           standalone text-mangling engine used by uwulock
+  utils/templates.js           loads self-role templates from templates/*.json
+  utils/emojiResolver.js       resolves emoji names against tomichu's application emojis
+  utils/registry.js            persisted self-role-registry.json (atomic reads/writes)
   features/uwulock.js          tracks locked users per guild + the intercept/webhook/delete flow
+  features/selfRoles.js        template -> roles/embed/components, plus all interaction/reaction handlers
   commands/                   prefix commands, auto-loaded by commands/index.js
   slashCommands/              slash commands, auto-loaded by slashCommands/index.js
   doubleCommands/              ,, (double-comma) commands: help, ping — auto-loaded by doubleCommands/index.js
   handlers/messageCreate.js   prefix parsing + command dispatch (both , and ,,)
-  handlers/interactionCreate.js   slash command dispatch
+  handlers/interactionCreate.js   slash command + self-role button/select dispatch
 templates/                  self-role template JSON — shared source of truth for the bot AND the website
   SCHEMA.md                   full format reference
   reaction-*.json, dropdown-*.json
+data/self-role-registry.json  bot-generated at runtime — never hand-edited, gitignored
 website/                    Vercel project root (see Deployment) — its own package.json, isolated deps
   build.js                    copies ../templates/*.json + generates a static showcase page
   vercel.json
@@ -148,7 +159,17 @@ anyway.
 
 The uwulock commands require the `Manage Messages` permission to use, since they act on someone else's messages. Locks are in-memory per guild and reset if the bot restarts.
 
-### Blank templates for new Fun commands
+### Self Roles
+- `,sendembed <template_id>` — sends a self-role message built from a template in `templates/`, creating any missing roles first. Run it with no ID to see available template IDs. Requires `Manage Roles` on both you and the bot.
+
+**How it works:**
+- **Buttons** — each button's role ID is baked straight into its `custom_id`, so clicking one is fully stateless: no lookup needed, survives bot restarts automatically.
+- **Dropdowns (select menus)** — up to 5 groups per message, each its own select menu. On selection, the full option set for that menu is read from `data/self-role-registry.json` (keyed by message + section index) to correctly add newly-selected roles and remove deselected ones.
+- **Reactions** — a reaction alone can't carry any data, so `messageId + emoji name` is looked up in the same registry to find the bound role. This is why reactions specifically need the `data/self-role-registry.json` file to persist across restarts — buttons/dropdowns are stateless by design, but reactions have no other way to carry that information.
+- **Emoji** — every emoji in a template (decorative header/footer tokens like `{wings_t}`, or a role's own emoji like `1_`) is resolved against tomichu's own application emojis (uploaded via the Discord Developer Portal) at send-time. Templates never hardcode a snowflake ID, since those are per-bot and would break the moment a different bot account is used.
+- **Role colors** — `colorType: "gradient"` and `"holographic"` need the guild to be boosted enough for Discord's enhanced role colors. If role creation fails for that reason, tomichu automatically retries as a plain solid color instead of failing the whole template, and logs a warning so it's visible why a role isn't gradient/holographic.
+
+
 
 `src/commands/_templates/` has three ready-to-edit stub files
 (`fun-placeholder-1.js`, `-2.js`, `-3.js`) with the full field reference
