@@ -1,0 +1,24 @@
+{
+  "id": "pronouns-reactions",
+  "embed": {
+    "title": "Pronouns",
+    "content": "⋆‧ㅤ°ㅤㅤ𓏲ּ𝄢 ㅤ𝒑𝒓𝒐𝒏𝒐𝒖𝒏𝒔 .",
+    "header": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {wings_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
+    "footer": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {star_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
+    "divider": "",
+    "color": null,
+    "thumbnail": null
+  },
+  "sections": [
+    {
+      "type": "info",
+      "interaction": "reaction",
+      "roles": [
+        { "emoji": "1_", "name": "she/her" },
+        { "emoji": "2_", "name": "he/him" },
+        { "emoji": "3_", "name": "they/them" },
+        { "emoji": "4_", "name": "any/all" }
+      ]
+    }
+  ]
+}

@@ -7,10 +7,14 @@ prefix) without stepping on its commands.
 
 ```
 npm install
-cp .env.example .env   # fill in DISCORD_TOKEN and DISCORD_CLIENT_ID
+cp .env.example .env   # fill in DISCORD_TOKEN, DISCORD_CLIENT_ID, and (if using the site) GITHUB_TOKEN
 npm run deploy          # registers slash commands with Discord (run once, or after changing any)
 npm start
 ```
+
+`index.js` lives at the repo root (not `src/index.js`) since this bot's
+hosting doesn't support a custom entry path — it just runs `node
+index.js` from wherever the repo lands.
 
 The bot needs the `Manage Nicknames` permission for the nick commands,
 `Manage Webhooks` for `,say` / `/say` to send impersonated messages, and
@@ -21,9 +25,15 @@ logged to the console.
 
 ## Structure
 
+This is a monorepo: the Discord bot and the self-role template showcase
+site live in the same repo, but are deployed completely separately (see
+Deployment below) and never share dependencies.
+
 ```
+index.js                  bot entry point — Discord hosting runs this directly
+package.json               bot's own dependencies (discord.js, dotenv)
+deploy-commands.js         registers slash commands with Discord (npm run deploy)
 src/
-  index.js                entry point, wires everything together
   config.js                 env/config loading (token, client id, prefixes)
   constants/theme.js         colors + emoji IDs used across all embeds
   utils/embeds.js             embed builders (success/fail/warn/loading/plain)
@@ -40,8 +50,49 @@ src/
   doubleCommands/              ,, (double-comma) commands: help, ping — auto-loaded by doubleCommands/index.js
   handlers/messageCreate.js   prefix parsing + command dispatch (both , and ,,)
   handlers/interactionCreate.js   slash command dispatch
-deploy-commands.js         registers slash commands with Discord (npm run deploy)
+templates/                  self-role template JSON — shared source of truth for the bot AND the website
+  SCHEMA.md                   full format reference
+  reaction-*.json, dropdown-*.json
+website/                    Vercel project root (see Deployment) — its own package.json, isolated deps
+  build.js                    copies ../templates/*.json + generates a static showcase page
+  vercel.json
+  package.json
 ```
+
+## Deployment
+
+Two independent deploys out of one repo:
+
+**Bot** — your Discord bot host pulls the whole repo and runs `node
+index.js` from the root. It never touches `website/` at all; that
+folder's dependencies (currently none) stay out of the bot's own
+`npm install` since `website/` has its own separate `package.json`.
+
+**Website** — connect this repo to a Vercel project, then in *Project
+Settings → Build & Development Settings*:
+1. Set **Root Directory** to `website`. This is what actually scopes
+   Vercel into that folder — `vercel.json` alone doesn't do this part,
+   it only configures the build once Vercel is already pointed there.
+2. Enable **"Include source files outside of the Root Directory in the
+   Build Step"**. Without this, `website/build.js` can't read
+   `../templates/*.json` at build time — Vercel won't check out the rest
+   of the repo otherwise.
+
+From there, every push to the repo triggers a Vercel build that copies
+the current templates into a fresh static page automatically.
+
+**Keeping templates in sync** — if you want the bot itself to push
+template edits (e.g. from an in-Discord admin command later) rather than
+hand-editing `templates/*.json` and pushing yourself, it needs a
+**fine-grained GitHub PAT** scoped to this one repo with only "Contents:
+Read and write" permission, stored as `GITHUB_TOKEN` in `.env`. It'd use
+GitHub's Contents API (read the file's current SHA, then `PUT` the new
+content) — no local git needed. One trade-off worth knowing since this
+is now the same repo as the bot's own source: that token's write access
+isn't limited to just `templates/` — GitHub scopes PATs per-repo, not
+per-folder — so if it ever leaked, it could touch the bot's code too, not
+just template JSON. For a personal project that's a reasonable trade for
+the simplicity of one repo; just don't reuse that PAT anywhere else.
 
 ## Adding a new command later
 

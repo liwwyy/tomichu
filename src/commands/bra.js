@@ -16,7 +16,7 @@ const SIZES = [
   { size: 'H', article: 'an' },
 ];
 
-const BLUSH_EMOJIS = ['😳', '🥵', '🫣', '🥴'];
+const BLUSH_EMOJIS = ['😳', '🙈', '🥵', '😅', '🫣', '🥴'];
 
 function pickOne(arr) {
   return arr[Math.floor(Math.random() * arr.length)];

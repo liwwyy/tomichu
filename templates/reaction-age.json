@@ -1,0 +1,24 @@
+{
+  "id": "age-reactions",
+  "embed": {
+    "title": "Age",
+    "content": "⋆‧ㅤ°ㅤㅤ𓏲ּ𝄢 ㅤ𝒂𝒈𝒆 .",
+    "header": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {wings_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
+    "footer": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {star_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
+    "divider": "",
+    "color": null,
+    "thumbnail": null
+  },
+  "sections": [
+    {
+      "type": "info",
+      "interaction": "reaction",
+      "roles": [
+        { "emoji": "1_", "name": "15" },
+        { "emoji": "2_", "name": "16" },
+        { "emoji": "3_", "name": "17" },
+        { "emoji": "4_", "name": "18+" }
+      ]
+    }
+  ]
+}

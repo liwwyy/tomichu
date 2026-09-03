@@ -1,0 +1,66 @@
+{
+  "id": "gradient-palettes",
+  "embed": {
+    "title": "Gradient Palette Roles",
+    "content": "⋆‧ㅤ°ㅤㅤ𓏲ּ𝄢 ㅤ𝒄𝒐𝒍𝒐𝒓 𝒓𝒐𝒍𝒆𝒔 .",
+    "header": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {wings_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
+    "footer": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {star_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
+    "divider": "",
+    "color": null,
+    "thumbnail": null
+  },
+  "sections": [
+    {
+      "type": "color",
+      "interaction": "dropdown",
+      "placeholder": "Cool Tones",
+      "roles": [
+        { "emoji": "💜", "name": "Sovereign Indigo", "colorType": "gradient", "primary": "#2D0057", "secondary": "#6A0DAD" },
+        { "emoji": "🔮", "name": "Velvet Amethyst", "colorType": "gradient", "primary": "#4B0082", "secondary": "#9B59B6" },
+        { "emoji": "🫐", "name": "Abyss Sapphire", "colorType": "gradient", "primary": "#060B4E", "secondary": "#1A3A9C" },
+        { "emoji": "🌊", "name": "Drowned Cobalt", "colorType": "gradient", "primary": "#001A2C", "secondary": "#003E6B" },
+        { "emoji": "🔷", "name": "Tempest Lapis", "colorType": "gradient", "primary": "#0A1A30", "secondary": "#1C3A5E" },
+        { "emoji": "🧿", "name": "Siren Turquoise", "colorType": "gradient", "primary": "#082030", "secondary": "#1A6A96" },
+        { "emoji": "🪬", "name": "Tidal Jade", "colorType": "gradient", "primary": "#0D2B2C", "secondary": "#2E8A8E" },
+        { "emoji": "🌌", "name": "Void Alexandrite", "colorType": "gradient", "primary": "#2A0050", "secondary": "#8A35C0" }
+      ]
+    },
+    {
+      "type": "color",
+      "interaction": "dropdown",
+      "placeholder": "Warm Tones",
+      "roles": [
+        { "emoji": "🩸", "name": "Bloodstone Ruby", "colorType": "gradient", "primary": "#3D0000", "secondary": "#8B0000" },
+        { "emoji": "🔴", "name": "Cursed Garnet", "colorType": "gradient", "primary": "#7B0A00", "secondary": "#C0392B" },
+        { "emoji": "🥀", "name": "Withered Rose", "colorType": "gradient", "primary": "#3D0018", "secondary": "#8B2252" },
+        { "emoji": "🖤", "name": "Midnight Amaranth", "colorType": "gradient", "primary": "#1A0010", "secondary": "#6B1045" },
+        { "emoji": "✨", "name": "Alchemist Gold", "colorType": "gradient", "primary": "#5A3A00", "secondary": "#D4A017" },
+        { "emoji": "🍂", "name": "Amber Relic", "colorType": "gradient", "primary": "#3B2000", "secondary": "#9C6500" },
+        { "emoji": "💎", "name": "Fallen Spinel", "colorType": "gradient", "primary": "#4A0010", "secondary": "#B52240" },
+        { "emoji": "🐍", "name": "Serpent Emerald", "colorType": "gradient", "primary": "#061F13", "secondary": "#1A7A43" }
+      ]
+    },
+    {
+      "type": "color",
+      "interaction": "dropdown",
+      "placeholder": "Dark Tones",
+      "roles": [
+        { "emoji": "🌿", "name": "Phantom Malachite", "colorType": "gradient", "primary": "#003028", "secondary": "#00A882" },
+        { "emoji": "🌲", "name": "Obsidian Forest", "colorType": "gradient", "primary": "#001A0D", "secondary": "#014421" },
+        { "emoji": "🌑", "name": "Eclipse Onyx", "colorType": "gradient", "primary": "#0D1520", "secondary": "#2C3E50" },
+        { "emoji": "🌠", "name": "Starless Iolite", "colorType": "gradient", "primary": "#080830", "secondary": "#2A2A7A" }
+      ]
+    },
+    {
+      "type": "color",
+      "interaction": "dropdown",
+      "placeholder": "Holographic",
+      "roles": [
+        { "emoji": "🪩", "name": "Prism Veil", "colorType": "holographic" },
+        { "emoji": "🌈", "name": "Aurora Glass", "colorType": "holographic" },
+        { "emoji": "🫧", "name": "Iridescent Halo", "colorType": "holographic" },
+        { "emoji": "💿", "name": "Opal Drift", "colorType": "holographic" }
+      ]
+    }
+  ]
+}
