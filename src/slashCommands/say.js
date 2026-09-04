@@ -1,7 +1,16 @@
-const { SlashCommandBuilder, ApplicationIntegrationType, InteractionContextType, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, ApplicationIntegrationType, InteractionContextType, EmbedBuilder, MessageFlags } = require('discord.js');
 const { failEmbed } = require('../utils/embeds');
 const { sendAsUser } = require('../utils/webhook');
 const { buildQuoteEmbed } = require('../utils/quoteEmbed');
+
+// A message a webhook can't send — the bot's own account posts instead,
+// styled as a small embed so it's still clear whose words these are.
+function buildRelayEmbed(interaction, content) {
+  const displayName = interaction.member?.displayName ?? interaction.user.globalName ?? interaction.user.username;
+  return new EmbedBuilder()
+    .setAuthor({ name: displayName, iconURL: interaction.user.displayAvatarURL({ extension: 'png', size: 256 }) })
+    .setDescription(content);
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -22,11 +31,13 @@ module.exports = {
     const media = interaction.options.getAttachment('media');
     const replyToId = interaction.options.getString('reply_to');
 
-    // True webhook impersonation needs a real guild channel tomichu has
-    // access to — only possible when guild-installed. User-installed
-    // use in a DM, group DM, or a guild tomichu itself isn't in has no
-    // webhook access at all, so those fall back to a plain relayed
-    // message further down.
+    // True webhook impersonation needs a real guild channel tomichu is
+    // actually a member of — only possible when guild-installed there.
+    // Everywhere else (DMs, group DMs, or a guild tomichu itself isn't
+    // in via a user install) there's no webhook access at all, so the
+    // bot's own account posts the message instead — see the try/catch
+    // below, which is the real fallback trigger regardless of this
+    // upfront guess.
     const canImpersonate = interaction.inGuild() && Boolean(interaction.channel) && Boolean(interaction.member);
 
     // Defer ephemerally so the interaction doesn't time out while the
@@ -43,8 +54,7 @@ module.exports = {
               embeds: [failEmbed(interaction.user.id, "Couldn't find that message ID in this channel — double check it")],
             });
           }
-          const quoteEmbed = buildQuoteEmbed(repliedMessage);
-          await sendAsUser(interaction.channel, interaction.member, { embeds: [quoteEmbed] });
+          await sendAsUser(interaction.channel, interaction.member, { embeds: [buildQuoteEmbed(repliedMessage)] });
         }
 
         await sendAsUser(interaction.channel, interaction.member, {
@@ -55,17 +65,15 @@ module.exports = {
         await interaction.deleteReply().catch(() => {});
         return;
       } catch (err) {
-        console.warn('Webhook impersonation unavailable, falling back to a plain relayed message:', err.message);
-        // falls through to the plain fallback below
+        console.warn('Webhook impersonation unavailable here, sending from tomichu\'s own account instead:', err.message);
+        // falls through to the bot-account path below
       }
     }
 
-    // Fallback for DMs, group DMs, or a guild tomichu isn't actually a
-    // member of: no webhook is possible, so just relay the message as a
-    // labeled plain message instead of true impersonation.
+    // Bot's own account path — used in DMs, group DMs, and any server
+    // tomichu isn't actually a member of. No webhook is possible there,
+    // so this posts as tomichu itself, styled with your name/avatar.
     try {
-      const displayName = interaction.member?.displayName ?? interaction.user.globalName ?? interaction.user.username;
-
       if (replyToId && interaction.channel?.messages) {
         const repliedMessage = await interaction.channel.messages.fetch(replyToId).catch(() => null);
         if (repliedMessage) {
@@ -74,14 +82,13 @@ module.exports = {
       }
 
       await interaction.followUp({
-        content: `**${displayName}:** ${content}`,
+        embeds: [buildRelayEmbed(interaction, content)],
         files: media ? [media.url] : undefined,
-        allowedMentions: { parse: [] },
       });
 
       await interaction.deleteReply().catch(() => {});
     } catch (err) {
-      console.error('Error running /say (fallback path):', err);
+      console.error('Error running /say (bot-account path):', err);
       await interaction.editReply({
         embeds: [failEmbed(interaction.user.id, "Couldn't send that here")],
       }).catch(() => {});

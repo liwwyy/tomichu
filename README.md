@@ -151,7 +151,7 @@ anyway.
   - The text version also accepts an attached file/image and deletes your original `,say` message afterward.
   - If you send `,say` as a reply to another message (or pass `reply_to` on `/say` with a message ID), tomichu first posts a small quote embed ("Replying to X") showing what you replied to, then sends your actual message right after — both via the webhook, styled as you.
   - To get a message ID for `reply_to`: enable Developer Mode in Discord settings, then right-click a message → Copy Message ID. Only works for messages in the same channel.
-  - **`/say` is user-installable** (`ApplicationIntegrationType.UserInstall` + all three interaction contexts) — it works in DMs, group DMs, and servers tomichu itself isn't a member of. True webhook impersonation is only possible where tomichu actually has a guild channel to create a webhook in; everywhere else it automatically falls back to relaying the message as `**{display name}:** {content}` instead. Run `npm run deploy` after any change to slash command definitions, and users need to add the app to their account (not just a server) from tomichu's profile for this to show up outside servers it's in.
+  - **`/say` is user-installable** (`ApplicationIntegrationType.UserInstall` + all three interaction contexts) — it works in DMs, group DMs, and servers tomichu itself isn't a member of. True webhook impersonation is only possible where tomichu actually has a guild channel to create a webhook in; everywhere else (DMs, group DMs, external servers) there's no webhook access at all, so tomichu's **own account** posts the message instead, styled as a small embed with your name/avatar as the author — that's the only way to send a message you didn't write in a place tomichu doesn't have channel access, since webhooks simply can't be created there. Run `npm run deploy` after any change to slash command definitions, and users need to add the app to their account (not just a server) from tomichu's profile for this to show up outside servers it's in.
 
 ### Fun
 - `,bra` — random cup-size embed, just for fun
@@ -161,12 +161,29 @@ anyway.
 - `,sendembed <template_id>` — sends a self-role message built from a template in `templates/`, creating any missing roles first. Run it with no ID to see available template IDs. Requires `Manage Roles` on both you and the bot.
 - `,undoembed <message_id>` — deletes every role tracked from that self-role message, edits the message to a plain "undone" notice, clears its reactions, and removes it from the registry. Irreversible.
 
-**How it works:**
-- **Role-mention preview** — the embed description always lists every role the message controls as `{emoji}<@&role>`, generated fresh from the actual created role IDs each time — never something you write into the template by hand.
-- **Buttons** — each button's role ID is baked straight into its `custom_id`, so clicking one is fully stateless: no lookup needed, survives bot restarts automatically.
+**`,sendembed`'s flow, in order:**
+1. Replies instantly with a "Creating roles" loading message — role creation can take a few seconds for larger templates.
+2. Creates any missing roles, builds the actual self-role message, sends it as a fresh message in the channel.
+3. Edits the "Creating roles" message to a short "Sent" confirmation.
+4. 3 seconds later, deletes both your original `,sendembed` command message and that confirmation — only the self-role message itself sticks around, so the channel doesn't accumulate command clutter every time this runs.
+
+**Two layouts, chosen per template** (`templates/SCHEMA.md` has the full spec):
+- **Legacy** (default) — a regular embed, description built from `header`/`content`/`footer` plus an indented, emoji-prefixed role-mention block per section. Used by all four reaction templates.
+- **Components V2** (`"componentsV2": true`) — a Container-based card instead of an embed: a `### title` heading, a plain `<@&role>`-per-line preview block per section (no emoji, no indent), then each interactive element re-labeled with its own heading right above it. Used by `gradient-palettes`.
+
+**Exclusive sections** (`"exclusive": true` on any section, any interaction type) — makes that group behave like a radio button instead of independent toggles: picking a new option automatically removes whichever sibling role from the same section the member already had.
+- Dropdowns get `minValues: 1, maxValues: 1` so the UI itself only allows one pick.
+- Buttons remove the sibling role before adding the new one.
+- Reactions remove the sibling role *and* the member's old reaction from the message, so it visually reflects the switch instead of leaving a stale reaction sitting there.
+
+Both `gradient-palettes` dropdown sections (Rainbow, Exotic) are exclusive — you can only hold one color role at a time from each. `fun-reactions` stays non-exclusive, so multiple ping roles can be held at once, same as before.
+
+**How the rest of it works:**
+- **Role-mention preview** — always generated fresh from the actual created role IDs, never something you write into the template by hand.
+- **Buttons** — each button's role ID is baked straight into its `custom_id`. Toggling is stateless; the registry is only consulted to check whether the button's section is exclusive.
 - **Dropdowns (select menus)** — up to 5 groups per message, each its own select menu. On selection, the full option set for that menu is read from `data/self-role-registry.json` (keyed by message + section index) to correctly add newly-selected roles and remove deselected ones.
-- **Reactions** — a reaction alone can't carry any data, so `messageId + emoji name` is looked up in the same registry to find the bound role. This is why reactions specifically need the `data/self-role-registry.json` file to persist across restarts — buttons/dropdowns are stateless by design, but reactions have no other way to carry that information.
-- **Emoji** — every emoji in a template (decorative header/footer tokens like `{wings_t}`, or a role's own emoji like `1_`) is resolved against tomichu's own application emojis (uploaded via the Discord Developer Portal) at send-time. Templates never hardcode a snowflake ID, since those are per-bot and would break the moment a different bot account is used.
+- **Reactions** — a reaction alone can't carry any data, so `messageId + emoji name` is looked up in the same registry to find the bound role. This is why reactions specifically need the `data/self-role-registry.json` file to persist across restarts — buttons/dropdowns lean on registry data too now (for the exclusive flag), but a button's core role-toggle still works even without it.
+- **Emoji** — every emoji in a template (decorative header/footer tokens like `{wings_t}`, or a role's own emoji like `1_`) is resolved against tomichu's own application emojis (uploaded via the Discord Developer Portal) at send-time. Templates never hardcode a snowflake ID, since those are per-bot and would break the moment a different bot account is used. Dropdown roles can also bake an emoji straight into the role's `name` instead (e.g. `"❤️ Red"`) — that's what `gradient-palettes` does, so the emoji becomes part of the actual role name rather than a separate select-option icon.
 - **Role colors** — `colorType: "gradient"` and `"holographic"` need the guild to be boosted enough for Discord's enhanced role colors. If role creation fails for that reason, tomichu automatically retries as a plain solid color instead of failing the whole template, and logs a warning so it's visible why a role isn't gradient/holographic.
 - **Reusing roles** — before creating any role (from a template, or from the commands below), tomichu checks for an existing role with the same name (case-insensitive) and reuses it instead of duplicating.
 - **Zero permissions** — every role tomichu creates gets an explicit empty permission set. Leaving `permissions` unset makes Discord silently copy whatever `@everyone` currently has onto the new role — this sidesteps that entirely.
@@ -179,6 +196,8 @@ anyway.
 All three require `Manage Roles` on both you and the bot. The delete commands skip anything tomichu can't actually delete (managed/integration roles, roles above tomichu's own) rather than erroring on them — the confirm screen shows the real count of what will actually go.
 
 ### Blank templates for new Fun commands
+
+`src/commands/_templates/` has three ready-to-edit stub files
 (`fun-placeholder-1.js`, `-2.js`, `-3.js`) with the full field reference
 commented at the top. They're **not** live commands — the loader skips
 anything that isn't directly inside `src/commands/`. To activate one:

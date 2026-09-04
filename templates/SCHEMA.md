@@ -1,32 +1,51 @@
-# Self-role template schema (draft)
+# Self-role template schema
 
-This is the data format `,sendembed <template_id>` will read from once
-that feature gets built. Nothing here is wired into the bot yet — this is
-the schema we settled on in discussion, ready to build against next
-version.
+This is the data format `,sendembed <template_id>` reads from — live and
+wired into the bot.
 
 ## Top-level template
 
 ```json
 {
   "id": "pronouns-reactions",
-  "embed": { ... },      // one embed for the whole message — see below
-  "sections": [ ... ]     // one or more interaction groups — see below
+  "componentsV2": false,   // optional, defaults to false — see layout section below
+  "embed": { ... },         // one embed for the whole message — see below
+  "sections": [ ... ]        // one or more interaction groups — see below
 }
 ```
 
 - **One template = one Discord message.** A template's `sections` array
   describes every interactive element attached to that single message.
 - **Reactions**: a template with a reaction section is meant to hold
-  exactly one section — reactions all land on one embed with no visual
+  exactly one section — reactions all land on one message with no visual
   grouping, so mixing topics in one reaction message gets confusing fast.
 - **Dropdowns**: a template can hold up to 5 dropdown sections (Discord's
-  cap on action rows per message), each rendered as its own select menu
-  under the shared embed. This is why your gradient-palettes file's three
-  tone groups collapse into one template with 3 sections instead of 3
-  separate templates.
+  cap on action rows per message), each rendered as its own select menu.
 
-## `embed` block (shared across the whole message)
+## Two layouts
+
+### Legacy (default) — traditional embed
+
+Used when `componentsV2` is absent or `false`. The embed's description is
+built from `header` / `content` / `footer` plus an auto-generated,
+indented, emoji-prefixed role-mention block per section. This is what
+`reaction-pronouns.json`, `reaction-fun.json`, `reaction-age.json`, and
+`reaction-dm-status.json` use.
+
+### Components V2 — card layout
+
+Used when `componentsV2: true`. Instead of an embed, the message is built
+as a single `ContainerBuilder` card: a `### {embed.title}` heading, then
+one plain role-mention block per section (**no emoji, no indent** — just
+`<@&roleId>` one per line), then each interactive element re-labeled with
+its own bold heading right above its select menu/buttons, separated by
+dividers throughout. This is what `dropdown-gradient-palettes.json` uses.
+Only `embed.title` is read in this mode — `header`/`content`/`footer`/
+`color`/`thumbnail` don't apply since Components V2 messages can't carry
+a regular embed at all (Discord requires content/embeds/poll/stickers to
+be entirely unset when the `IsComponentsV2` flag is set).
+
+## `embed` block (legacy layout only)
 
 ```json
 {
@@ -54,18 +73,33 @@ version.
   to any role color.
 - `thumbnail` — optional image URL, `null` if unused.
 
-**The role-mention preview is generated automatically** — you never write
-it into the template. For every section, the bot builds one line per role
-as `{indent}{emoji}<@&roleId>` (using the real role ID created for that
-role), and inserts the whole block between the header and footer. If a
-template has more than one section, each block gets a bold heading from
-that section's `placeholder`/`title` so a multi-dropdown message (like
-the gradient palette one) reads as clearly labeled groups instead of one
-long undifferentiated list.
+**The role-mention preview is generated automatically in both layouts**
+— you never write it into the template. For every section, the bot
+builds one line per role using the real role ID created for that role.
+If a template has more than one section, each block gets a bold heading
+from that section's `placeholder`/`title` so a multi-dropdown message
+reads as clearly labeled groups instead of one long undifferentiated
+list.
 
 ## `sections[]`
 
-Each section is one interactive group attached to the shared embed.
+Each section is one interactive group attached to the message.
+
+- `exclusive` (optional, any interaction type, default `false`) — when
+  `true`, the section behaves like a radio group: selecting a new role
+  automatically removes whichever other role from the *same section* the
+  member already had.
+  - **Dropdown**: forces `minValues: 1, maxValues: 1` on the select menu,
+    so the UI itself only ever allows one choice.
+  - **Buttons**: clicking a button removes any sibling role from the
+    same section the member currently holds before adding the new one.
+  - **Reactions**: adding a new reaction removes the bound role for
+    whichever sibling emoji the member already reacted with — *and*
+    removes that old reaction from the message itself, so the message
+    visually reflects the switch instead of leaving a stale reaction
+    behind.
+  - Non-exclusive sections are untouched by any of this — multiple roles
+    from the same section can be held at once, exactly like before.
 
 ### Reaction section
 
@@ -73,6 +107,7 @@ Each section is one interactive group attached to the shared embed.
 {
   "type": "info",
   "interaction": "reaction",
+  "exclusive": false,
   "roles": [
     { "emoji": "1_", "name": "she/her" },
     { "emoji": "2_", "name": "he/him" },
@@ -93,18 +128,25 @@ Each section is one interactive group attached to the shared embed.
 {
   "type": "color",
   "interaction": "dropdown",
-  "placeholder": "Cool Tones",
+  "placeholder": "Rainbow",
+  "exclusive": true,
   "roles": [
     {
-      "emoji": "💜",
-      "name": "Sovereign Indigo",
+      "name": "❤️ Red",
       "colorType": "gradient",
-      "primary": "#2D0057",
-      "secondary": "#6A0DAD"
+      "primary": "#FFB3B3",
+      "secondary": "#FF8080"
     }
   ]
 }
 ```
+
+`roles[].emoji` is optional here — the gradient-palettes template instead
+bakes the emoji straight into `name` (e.g. `"❤️ Red"`), which becomes
+both the select option's label *and* the actual created role's name. If
+`emoji` **is** set, it's used as a separate select-option emoji instead
+(same resolution as reactions/header tokens) and the role name stays
+plain.
 
 `roles[].colorType` is one of:
 

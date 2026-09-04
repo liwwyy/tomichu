@@ -4,6 +4,10 @@ const {
   ButtonBuilder,
   ButtonStyle,
   StringSelectMenuBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
   MessageFlags,
 } = require('discord.js');
 const { getTemplate } = require('../utils/templates');
@@ -29,6 +33,8 @@ const HOLOGRAPHIC_COLORS = { primaryColor: 11127295, secondaryColor: 16759788, t
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+// --- Legacy (embed-based) layout -------------------------------------
 
 // Builds the description from header/content/footer plus a role-mention
 // preview block per section, so people can see exactly what they're
@@ -59,6 +65,118 @@ function buildEmbed(client, template, previewSections) {
 
   return embed;
 }
+
+function buildLegacyPayload(client, template, sectionsWithRoles) {
+  const components = [];
+  const previewSections = [];
+
+  for (const { section, rolesWithDefs, sectionIndex } of sectionsWithRoles) {
+    previewSections.push({
+      heading: section.placeholder || section.title || null,
+      entries: rolesWithDefs.map(({ roleDef, role }) => ({ emojiKey: roleDef.emoji, roleId: role.id })),
+    });
+
+    if (section.interaction === 'dropdown') {
+      const exclusive = Boolean(section.exclusive);
+      const options = rolesWithDefs.map(({ roleDef, role }) => {
+        const option = { label: roleDef.name, value: role.id };
+        if (roleDef.emoji) option.emoji = emojiIdentifier(resolveEmojiKey(client, roleDef.emoji));
+        return option;
+      });
+
+      const select = new StringSelectMenuBuilder()
+        .setCustomId(`selfrole:sel:${sectionIndex}`)
+        .setPlaceholder(section.placeholder || 'Select a role')
+        .setMinValues(exclusive ? 1 : 0)
+        .setMaxValues(exclusive ? 1 : options.length)
+        .addOptions(options);
+
+      components.push(new ActionRowBuilder().addComponents(select));
+    } else if (section.interaction === 'buttons') {
+      const buttons = rolesWithDefs.map(({ roleDef, role }) => {
+        const button = new ButtonBuilder().setCustomId(`selfrole:btn:${role.id}`).setLabel(roleDef.name).setStyle(ButtonStyle.Secondary);
+        if (roleDef.emoji) button.setEmoji(emojiIdentifier(resolveEmojiKey(client, roleDef.emoji)));
+        return button;
+      });
+
+      for (let i = 0; i < buttons.length; i += 5) {
+        components.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+      }
+    }
+  }
+
+  return { embeds: [buildEmbed(client, template, previewSections)], components };
+}
+
+// --- Components V2 layout ---------------------------------------------
+// A Container-based card: a heading, a plain role-mention preview block
+// per section (no emoji, no indent — just <@&role> per line), then each
+// interactive element re-labeled with its own heading. Discord requires
+// content/embeds/poll/stickers to be entirely unset when using this.
+function buildComponentsV2Payload(client, template, sectionsWithRoles) {
+  const container = new ContainerBuilder();
+  const e = template.embed ?? {};
+  const divider = () => new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small);
+
+  if (e.title) {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${e.title}`));
+    container.addSeparatorComponents(divider());
+  }
+
+  for (const { section, rolesWithDefs } of sectionsWithRoles) {
+    const heading = section.placeholder || section.title;
+    const headingLine = heading ? `**${heading}**\n` : '';
+    const mentions = rolesWithDefs.map(({ role }) => `<@&${role.id}>`).join('\n');
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(headingLine + mentions));
+    container.addSeparatorComponents(divider());
+  }
+
+  const interactiveSections = sectionsWithRoles.filter(({ section }) => section.interaction !== 'reaction');
+
+  interactiveSections.forEach(({ section, rolesWithDefs, sectionIndex }, index) => {
+    const heading = section.placeholder || section.title || 'Select a role';
+
+    if (section.interaction === 'dropdown') {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**${heading}**`));
+
+      const exclusive = Boolean(section.exclusive);
+      const options = rolesWithDefs.map(({ roleDef, role }) => {
+        const option = { label: roleDef.name, value: role.id };
+        if (roleDef.emoji) option.emoji = emojiIdentifier(resolveEmojiKey(client, roleDef.emoji));
+        return option;
+      });
+
+      const select = new StringSelectMenuBuilder()
+        .setCustomId(`selfrole:sel:${sectionIndex}`)
+        .setPlaceholder(heading)
+        .setMinValues(exclusive ? 1 : 0)
+        .setMaxValues(exclusive ? 1 : options.length)
+        .addOptions(options);
+
+      container.addActionRowComponents(new ActionRowBuilder().addComponents(select));
+    } else if (section.interaction === 'buttons') {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**${heading}**`));
+
+      const buttons = rolesWithDefs.map(({ roleDef, role }) => {
+        const button = new ButtonBuilder().setCustomId(`selfrole:btn:${role.id}`).setLabel(roleDef.name).setStyle(ButtonStyle.Secondary);
+        if (roleDef.emoji) button.setEmoji(emojiIdentifier(resolveEmojiKey(client, roleDef.emoji)));
+        return button;
+      });
+
+      for (let i = 0; i < buttons.length; i += 5) {
+        container.addActionRowComponents(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+      }
+    }
+
+    if (index < interactiveSections.length - 1) {
+      container.addSeparatorComponents(divider());
+    }
+  });
+
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
+// --- Role creation -----------------------------------------------------
 
 function resolveRoleColorOptions(roleDef) {
   if (roleDef.colorType === 'holographic') {
@@ -115,11 +233,12 @@ async function ensureRolesForSection(guild, section) {
   return results;
 }
 
+// --- Send -----------------------------------------------------------
+
 // Builds and sends one self-role message from a template: creates any
-// missing roles, builds the embed (with a role-mention preview) + UI for
-// each section, sends it, and writes a registry entry so
-// interactions/reactions/undoembed can be resolved later without ever
-// re-reading the template.
+// missing roles, builds the embed/container + UI for each section,
+// sends it, and writes a registry entry so interactions/reactions/
+// undoembed can be resolved later without ever re-reading the template.
 async function sendTemplate(client, guild, channel, templateId) {
   const template = getTemplate(templateId);
   if (!template) return { ok: false, reason: 'not_found' };
@@ -129,9 +248,8 @@ async function sendTemplate(client, guild, channel, templateId) {
   // class of bug as the original "only 7 members" nickname issue.
   await guild.roles.fetch();
 
-  const components = [];
   const registrySections = [];
-  const previewSections = [];
+  const sectionsWithRoles = [];
   const reactionsToAdd = [];
 
   const sections = template.sections ?? [];
@@ -140,11 +258,9 @@ async function sendTemplate(client, guild, channel, templateId) {
     const section = sections[sectionIndex];
     const rolesWithDefs = await ensureRolesForSection(guild, section);
     const roleIds = rolesWithDefs.map(({ role }) => role.id);
+    const exclusive = Boolean(section.exclusive);
 
-    previewSections.push({
-      heading: section.placeholder || section.title || null,
-      entries: rolesWithDefs.map(({ roleDef, role }) => ({ emojiKey: roleDef.emoji, roleId: role.id })),
-    });
+    sectionsWithRoles.push({ section, rolesWithDefs, sectionIndex });
 
     if (section.interaction === 'reaction') {
       const bindings = {};
@@ -152,42 +268,19 @@ async function sendTemplate(client, guild, channel, templateId) {
         bindings[roleDef.emoji] = role.id;
         reactionsToAdd.push({ key: roleDef.emoji });
       }
-      registrySections[sectionIndex] = { interaction: 'reaction', bindings, roleIds };
+      registrySections[sectionIndex] = { interaction: 'reaction', bindings, roleIds, exclusive };
     } else if (section.interaction === 'dropdown') {
-      const options = rolesWithDefs.map(({ roleDef, role }) => ({
-        label: roleDef.name,
-        value: role.id,
-        emoji: emojiIdentifier(resolveEmojiKey(client, roleDef.emoji)),
-      }));
-
-      const select = new StringSelectMenuBuilder()
-        .setCustomId(`selfrole:sel:${sectionIndex}`)
-        .setPlaceholder(section.placeholder || 'Select a role')
-        .setMinValues(0)
-        .setMaxValues(options.length)
-        .addOptions(options);
-
-      components.push(new ActionRowBuilder().addComponents(select));
-      registrySections[sectionIndex] = { interaction: 'dropdown', roleIds };
+      registrySections[sectionIndex] = { interaction: 'dropdown', roleIds, exclusive };
     } else if (section.interaction === 'buttons') {
-      const buttons = rolesWithDefs.map(({ roleDef, role }) =>
-        new ButtonBuilder()
-          .setCustomId(`selfrole:btn:${role.id}`)
-          .setLabel(roleDef.name)
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji(emojiIdentifier(resolveEmojiKey(client, roleDef.emoji))),
-      );
-
-      // Discord caps buttons at 5 per row.
-      for (let i = 0; i < buttons.length; i += 5) {
-        components.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
-      }
-      registrySections[sectionIndex] = { interaction: 'buttons', roleIds };
+      registrySections[sectionIndex] = { interaction: 'buttons', roleIds, exclusive };
     }
   }
 
-  const embed = buildEmbed(client, template, previewSections);
-  const message = await channel.send({ embeds: [embed], components });
+  const payload = template.componentsV2
+    ? buildComponentsV2Payload(client, template, sectionsWithRoles)
+    : buildLegacyPayload(client, template, sectionsWithRoles);
+
+  const message = await channel.send(payload);
 
   for (const { key } of reactionsToAdd) {
     const identifier = emojiReactionIdentifier(resolveEmojiKey(client, key));
@@ -211,6 +304,8 @@ async function sendTemplate(client, guild, channel, templateId) {
   return { ok: true, message, roleCount };
 }
 
+// --- Interaction handlers ---------------------------------------------
+
 async function toggleSelfRole(member, roleId) {
   const has = member.roles.cache.has(roleId);
   try {
@@ -227,12 +322,29 @@ async function toggleSelfRole(member, roleId) {
 }
 
 // Buttons encode the role ID directly in their customId
-// (selfrole:btn:<roleId>) — fully stateless, no registry lookup needed.
+// (selfrole:btn:<roleId>) — a registry lookup is still needed to know
+// whether this button belongs to an "exclusive" section, and if so,
+// which sibling roles to remove on select.
 async function handleButtonInteraction(interaction) {
   const roleId = interaction.customId.split(':')[2];
-  const { added, error } = await toggleSelfRole(interaction.member, roleId);
+  const entry = getMessage(interaction.message.id);
+  const section = entry?.sections?.find((s) => s.interaction === 'buttons' && s.roleIds?.includes(roleId));
 
-  if (error) {
+  const member = interaction.member;
+  const has = member.roles.cache.has(roleId);
+
+  try {
+    if (has) {
+      await member.roles.remove(roleId, 'tomichu self-role toggle');
+    } else {
+      if (section?.exclusive) {
+        const siblings = section.roleIds.filter((id) => id !== roleId && member.roles.cache.has(id));
+        if (siblings.length) await member.roles.remove(siblings, 'tomichu self-role exclusive switch');
+      }
+      await member.roles.add(roleId, 'tomichu self-role toggle');
+    }
+  } catch (err) {
+    console.error('Failed to toggle self-role button:', err);
     return interaction.reply({
       content: "Couldn't update that role — check my role position and permissions",
       flags: MessageFlags.Ephemeral,
@@ -240,13 +352,15 @@ async function handleButtonInteraction(interaction) {
   }
 
   const role = interaction.guild.roles.cache.get(roleId);
-  const text = added ? `Added **${role?.name ?? 'role'}**` : `Removed **${role?.name ?? 'role'}**`;
+  const text = has ? `Removed **${role?.name ?? 'role'}**` : `Added **${role?.name ?? 'role'}**`;
   return interaction.reply({ content: text, flags: MessageFlags.Ephemeral });
 }
 
 // Select menus need the full option set to know what to remove on
 // deselect — that comes from the registry, keyed by message + section
-// index, not from the interaction itself.
+// index, not from the interaction itself. Exclusive sections already
+// have minValues/maxValues locked to 1 at build time, so this same diff
+// logic naturally handles the single-select "switch" behavior too.
 async function handleSelectInteraction(interaction) {
   const sectionIndex = Number(interaction.customId.split(':')[2]);
   const entry = getMessage(interaction.message.id);
@@ -279,7 +393,10 @@ async function handleSelectInteraction(interaction) {
 }
 
 // Reactions carry no data of their own — messageId + emoji is looked up
-// in the registry to find the bound role.
+// in the registry to find the bound role. For exclusive sections, adding
+// a new reaction also removes whatever sibling role (and its reaction)
+// the member already had from the same section, so it behaves like a
+// toggle/switch rather than letting reactions stack up.
 async function handleReactionAdd(reaction, user) {
   if (user.bot) return;
   if (reaction.partial) await reaction.fetch().catch(() => null);
@@ -288,11 +405,28 @@ async function handleReactionAdd(reaction, user) {
   const entry = getMessage(reaction.message.id);
   if (!entry) return;
 
-  const roleId = entry.sections.find((s) => s.interaction === 'reaction')?.bindings?.[reaction.emoji.name];
-  if (!roleId) return;
+  const section = entry.sections.find((s) => s.interaction === 'reaction' && s.bindings?.[reaction.emoji.name]);
+  if (!section) return;
+
+  const roleId = section.bindings[reaction.emoji.name];
 
   const member = await reaction.message.guild.members.fetch(user.id).catch(() => null);
   if (!member) return;
+
+  if (section.exclusive) {
+    const siblingEntries = Object.entries(section.bindings).filter(
+      ([, siblingRoleId]) => siblingRoleId !== roleId && member.roles.cache.has(siblingRoleId),
+    );
+
+    for (const [emojiKey, oldRoleId] of siblingEntries) {
+      await member.roles.remove(oldRoleId, 'tomichu self-role exclusive switch').catch((err) => console.error('Failed to remove old exclusive role:', err));
+
+      const oldReaction = reaction.message.reactions.cache.find((r) => r.emoji.name === emojiKey);
+      if (oldReaction) {
+        await oldReaction.users.remove(user.id).catch((err) => console.error('Failed to remove old reaction:', err));
+      }
+    }
+  }
 
   await member.roles.add(roleId, 'tomichu self-role reaction').catch((err) => console.error('Failed to add reaction role:', err));
 }
