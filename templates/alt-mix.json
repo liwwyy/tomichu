@@ -1,0 +1,26 @@
+{
+  "id": "gradient-alt-mix",
+  "componentsV2": true,
+  "embed": {
+    "title": "Colour Roles — Alt Mix",
+    "header": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {wings_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
+    "footer": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {star_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚"
+  },
+  "sections": [
+    {
+      "title": "Alt Mix",
+      "type": "color",
+      "interaction": "dropdown",
+      "placeholder": "Alt Mix",
+      "exclusive": true,
+      "roles": [
+        { "name": "🔥 Solstice", "colorType": "gradient", "primary": "#FFD9A0", "secondary": "#A0C4FF" },
+        { "name": "🌪️ Paradox", "colorType": "gradient", "primary": "#FFB3C6", "secondary": "#B3FFD9" },
+        { "name": "🎭 Duality", "colorType": "gradient", "primary": "#D9B3FF", "secondary": "#FFF3B0" },
+        { "name": "🧊 Firelight", "colorType": "gradient", "primary": "#FF9E9E", "secondary": "#9EE6FF" },
+        { "name": "🌗 Eclipse Mix", "colorType": "gradient", "primary": "#FFF0B3", "secondary": "#B3B3FF" },
+        { "name": "🎨 Clashpaint", "colorType": "gradient", "primary": "#C6FFB3", "secondary": "#FFB3EC" }
+      ]
+    }
+  ]
+}

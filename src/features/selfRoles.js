@@ -109,14 +109,23 @@ function buildLegacyPayload(client, template, sectionsWithRoles) {
 }
 
 // --- Components V2 layout ---------------------------------------------
-// A Container-based card: a heading, a plain role-mention preview block
-// per section (no emoji, no indent — just <@&role> per line), then each
-// interactive element re-labeled with its own heading. Discord requires
-// content/embeds/poll/stickers to be entirely unset when using this.
+// A Container-based card: an optional header, a heading, a plain
+// role-mention preview block per section (no emoji, no indent — just
+// <@&role> per line), each interactive element re-labeled with its own
+// heading, and an optional footer. Discord requires content/embeds/poll/
+// stickers to be entirely unset when using this.
 function buildComponentsV2Payload(client, template, sectionsWithRoles) {
   const container = new ContainerBuilder();
   const e = template.embed ?? {};
   const divider = () => new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small);
+
+  const header = substituteEmojiTokens(client, e.header);
+  const footer = substituteEmojiTokens(client, e.footer);
+
+  if (header) {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(header));
+    container.addSeparatorComponents(divider());
+  }
 
   if (e.title) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${e.title}`));
@@ -168,10 +177,14 @@ function buildComponentsV2Payload(client, template, sectionsWithRoles) {
       }
     }
 
-    if (index < interactiveSections.length - 1) {
+    if (index < interactiveSections.length - 1 || footer) {
       container.addSeparatorComponents(divider());
     }
   });
+
+  if (footer) {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(footer));
+  }
 
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
@@ -296,6 +309,11 @@ async function sendTemplate(client, guild, channel, templateId) {
     guildId: guild.id,
     channelId: channel.id,
     templateId: template.id,
+    // When true, ALL exclusive sections in this message share one pool —
+    // picking a role in any of them removes a role from any of the others,
+    // not just its own section. When false/absent, exclusivity stays
+    // scoped to each section individually (the original behavior).
+    exclusiveAcrossSections: Boolean(template.exclusiveAcrossSections),
     sections: registrySections,
   });
 
@@ -305,6 +323,21 @@ async function sendTemplate(client, guild, channel, templateId) {
 }
 
 // --- Interaction handlers ---------------------------------------------
+
+// Every role ID belonging to any exclusive section in this message,
+// across every interaction type — used when a template opts into
+// exclusiveAcrossSections so a pick in one section can evict a role from
+// a completely different section.
+function collectExclusiveRolePool(entry) {
+  const pool = new Set();
+  for (const section of entry.sections) {
+    if (!section.exclusive) continue;
+    for (const id of section.roleIds ?? Object.values(section.bindings ?? {})) {
+      pool.add(id);
+    }
+  }
+  return pool;
+}
 
 async function toggleSelfRole(member, roleId) {
   const has = member.roles.cache.has(roleId);
@@ -338,7 +371,8 @@ async function handleButtonInteraction(interaction) {
       await member.roles.remove(roleId, 'tomichu self-role toggle');
     } else {
       if (section?.exclusive) {
-        const siblings = section.roleIds.filter((id) => id !== roleId && member.roles.cache.has(id));
+        const pool = entry.exclusiveAcrossSections ? collectExclusiveRolePool(entry) : new Set(section.roleIds);
+        const siblings = [...pool].filter((id) => id !== roleId && member.roles.cache.has(id));
         if (siblings.length) await member.roles.remove(siblings, 'tomichu self-role exclusive switch');
       }
       await member.roles.add(roleId, 'tomichu self-role toggle');
@@ -360,7 +394,9 @@ async function handleButtonInteraction(interaction) {
 // deselect — that comes from the registry, keyed by message + section
 // index, not from the interaction itself. Exclusive sections already
 // have minValues/maxValues locked to 1 at build time, so this same diff
-// logic naturally handles the single-select "switch" behavior too.
+// logic naturally handles the single-select "switch" behavior too. When
+// exclusiveAcrossSections is on, the removal pool widens to every
+// exclusive section's roles instead of just this one's.
 async function handleSelectInteraction(interaction) {
   const sectionIndex = Number(interaction.customId.split(':')[2]);
   const entry = getMessage(interaction.message.id);
@@ -375,8 +411,12 @@ async function handleSelectInteraction(interaction) {
 
   const selected = new Set(interaction.values);
   const member = interaction.member;
+
+  const removalPool =
+    section.exclusive && entry.exclusiveAcrossSections ? collectExclusiveRolePool(entry) : new Set(section.roleIds);
+
   const toAdd = section.roleIds.filter((id) => selected.has(id) && !member.roles.cache.has(id));
-  const toRemove = section.roleIds.filter((id) => !selected.has(id) && member.roles.cache.has(id));
+  const toRemove = [...removalPool].filter((id) => !selected.has(id) && member.roles.cache.has(id));
 
   try {
     if (toAdd.length) await member.roles.add(toAdd, 'tomichu self-role dropdown');
@@ -394,9 +434,12 @@ async function handleSelectInteraction(interaction) {
 
 // Reactions carry no data of their own — messageId + emoji is looked up
 // in the registry to find the bound role. For exclusive sections, adding
-// a new reaction also removes whatever sibling role (and its reaction)
-// the member already had from the same section, so it behaves like a
-// toggle/switch rather than letting reactions stack up.
+// a new reaction also removes whatever sibling role the member already
+// had — same-section siblings also get their old reaction removed from
+// the message so it visually reflects the switch; cross-section siblings
+// (when exclusiveAcrossSections is on) just lose the role, since other
+// section types don't carry any persistent visual "selected" state to
+// clean up.
 async function handleReactionAdd(reaction, user) {
   if (user.bot) return;
   if (reaction.partial) await reaction.fetch().catch(() => null);
@@ -419,11 +462,27 @@ async function handleReactionAdd(reaction, user) {
     );
 
     for (const [emojiKey, oldRoleId] of siblingEntries) {
-      await member.roles.remove(oldRoleId, 'tomichu self-role exclusive switch').catch((err) => console.error('Failed to remove old exclusive role:', err));
+      await member.roles
+        .remove(oldRoleId, 'tomichu self-role exclusive switch')
+        .catch((err) => console.error('Failed to remove old exclusive role:', err));
 
       const oldReaction = reaction.message.reactions.cache.find((r) => r.emoji.name === emojiKey);
       if (oldReaction) {
         await oldReaction.users.remove(user.id).catch((err) => console.error('Failed to remove old reaction:', err));
+      }
+    }
+
+    if (entry.exclusiveAcrossSections) {
+      for (const otherSection of entry.sections) {
+        if (otherSection === section || !otherSection.exclusive) continue;
+        const idsToRemove = (otherSection.roleIds ?? Object.values(otherSection.bindings ?? {})).filter(
+          (id) => id !== roleId && member.roles.cache.has(id),
+        );
+        if (idsToRemove.length) {
+          await member.roles
+            .remove(idsToRemove, 'tomichu self-role exclusive switch (cross-section)')
+            .catch((err) => console.error('Failed to remove cross-section exclusive role:', err));
+        }
       }
     }
   }

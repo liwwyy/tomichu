@@ -1,8 +1,11 @@
 {
-  "id": "gradient-palettes",
+  "id": "gradient-palettes-goth",
   "componentsV2": true,
+  "exclusiveAcrossSections": true,
   "embed": {
-    "title": "Colour Roles"
+    "title": "Colour Roles",
+    "header": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {wings_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
+    "footer": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {star_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚"
   },
   "sections": [
     {
@@ -18,7 +21,8 @@
         { "name": "💚 Green", "colorType": "gradient", "primary": "#C8F4C8", "secondary": "#8FE38F" },
         { "name": "💙 Blue", "colorType": "gradient", "primary": "#BEE3FF", "secondary": "#8EC9FF" },
         { "name": "💜 Purple", "colorType": "gradient", "primary": "#E2C8FF", "secondary": "#C79BFF" },
-        { "name": "🩷 Pink", "colorType": "gradient", "primary": "#FFD1EC", "secondary": "#FFAEDD" }
+        { "name": "🩷 Pink", "colorType": "gradient", "primary": "#FFD1EC", "secondary": "#FFAEDD" },
+        { "name": "🤍 White", "colorType": "gradient", "primary": "#FFFFFF", "secondary": "#EDEDED" }
       ]
     },
     {
@@ -29,12 +33,12 @@
       "exclusive": true,
       "roles": [
         { "name": "🪷 Lotus", "colorType": "gradient", "primary": "#FFD9E8", "secondary": "#FFB3D1" },
-        { "name": "🌸 Sakura", "colorType": "gradient", "primary": "#FFE1F0", "secondary": "#FFC2E0" },
-        { "name": "🌺 Hibiscus", "colorType": "gradient", "primary": "#FFD0D8", "secondary": "#FF9EB0" },
+        { "name": "🌸 Sakura", "colorType": "gradient", "primary": "#FFF0E0", "secondary": "#FFD9B3" },
+        { "name": "🌺 Hibiscus", "colorType": "gradient", "primary": "#FFD4C4", "secondary": "#FF9F80" },
         { "name": "🌻 Sunflower", "colorType": "gradient", "primary": "#FFEFAF", "secondary": "#FFDD6E" },
-        { "name": "🌹 Rose", "colorType": "gradient", "primary": "#FFD6D6", "secondary": "#FFA8A8" },
-        { "name": "🌼 Daisy", "colorType": "gradient", "primary": "#FFFDE0", "secondary": "#FFF3A0" },
-        { "name": "🌷 Tulip", "colorType": "gradient", "primary": "#FFD9EC", "secondary": "#FFAEDD" },
+        { "name": "🌹 Rose", "colorType": "gradient", "primary": "#FFD1E8", "secondary": "#FF9EC7" },
+        { "name": "🌼 Daisy", "colorType": "gradient", "primary": "#FFFDF0", "secondary": "#FFF8D6" },
+        { "name": "🌷 Tulip", "colorType": "gradient", "primary": "#F0D9FF", "secondary": "#D9AEFF" },
         { "name": "🔮 Holographic", "colorType": "holographic" }
       ]
     }

@@ -1,0 +1,76 @@
+{
+  "id": "gradient-all-colors",
+  "componentsV2": true,
+  "exclusiveAcrossSections": true,
+  "embed": {
+    "title": "Colour Roles — All",
+    "header": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {wings_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
+    "footer": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {star_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚"
+  },
+  "sections": [
+    {
+      "title": "Rainbow",
+      "type": "color",
+      "interaction": "dropdown",
+      "placeholder": "Rainbow",
+      "exclusive": true,
+      "roles": [
+        { "name": "❤️ Red", "colorType": "gradient", "primary": "#FFB3B3", "secondary": "#FF8080" },
+        { "name": "🧡 Orange", "colorType": "gradient", "primary": "#FFD9B3", "secondary": "#FFB366" },
+        { "name": "💛 Yellow", "colorType": "gradient", "primary": "#FFF3B0", "secondary": "#FFE066" },
+        { "name": "💚 Green", "colorType": "gradient", "primary": "#C8F4C8", "secondary": "#8FE38F" },
+        { "name": "💙 Blue", "colorType": "gradient", "primary": "#BEE3FF", "secondary": "#8EC9FF" },
+        { "name": "💜 Purple", "colorType": "gradient", "primary": "#E2C8FF", "secondary": "#C79BFF" },
+        { "name": "🩷 Pink", "colorType": "gradient", "primary": "#FFD1EC", "secondary": "#FFAEDD" },
+        { "name": "🤍 White", "colorType": "gradient", "primary": "#FFFFFF", "secondary": "#EDEDED" }
+      ]
+    },
+    {
+      "title": "Exotic",
+      "type": "color",
+      "interaction": "dropdown",
+      "placeholder": "Exotic",
+      "exclusive": true,
+      "roles": [
+        { "name": "🪷 Lotus", "colorType": "gradient", "primary": "#FFD9E8", "secondary": "#FFB3D1" },
+        { "name": "🌸 Sakura", "colorType": "gradient", "primary": "#FFF0E0", "secondary": "#FFD9B3" },
+        { "name": "🌺 Hibiscus", "colorType": "gradient", "primary": "#FFD4C4", "secondary": "#FF9F80" },
+        { "name": "🌻 Sunflower", "colorType": "gradient", "primary": "#FFEFAF", "secondary": "#FFDD6E" },
+        { "name": "🌹 Rose", "colorType": "gradient", "primary": "#FFD1E8", "secondary": "#FF9EC7" },
+        { "name": "🌼 Daisy", "colorType": "gradient", "primary": "#FFFDF0", "secondary": "#FFF8D6" },
+        { "name": "🌷 Tulip", "colorType": "gradient", "primary": "#F0D9FF", "secondary": "#D9AEFF" },
+        { "name": "🔮 Holographic", "colorType": "holographic" }
+      ]
+    },
+    {
+      "title": "Alt Mix",
+      "type": "color",
+      "interaction": "dropdown",
+      "placeholder": "Alt Mix",
+      "exclusive": true,
+      "roles": [
+        { "name": "🔥 Solstice", "colorType": "gradient", "primary": "#FFD9A0", "secondary": "#A0C4FF" },
+        { "name": "🌪️ Paradox", "colorType": "gradient", "primary": "#FFB3C6", "secondary": "#B3FFD9" },
+        { "name": "🎭 Duality", "colorType": "gradient", "primary": "#D9B3FF", "secondary": "#FFF3B0" },
+        { "name": "🧊 Firelight", "colorType": "gradient", "primary": "#FF9E9E", "secondary": "#9EE6FF" },
+        { "name": "🌗 Eclipse Mix", "colorType": "gradient", "primary": "#FFF0B3", "secondary": "#B3B3FF" },
+        { "name": "🎨 Clashpaint", "colorType": "gradient", "primary": "#C6FFB3", "secondary": "#FFB3EC" }
+      ]
+    },
+    {
+      "title": "Alt Mix 2",
+      "type": "color",
+      "interaction": "dropdown",
+      "placeholder": "Alt Mix 2",
+      "exclusive": true,
+      "roles": [
+        { "name": "🎲 Wildcard", "colorType": "gradient", "primary": "#FFD1DC", "secondary": "#C7CEEA" },
+        { "name": "🧩 Static", "colorType": "gradient", "primary": "#E0BBE4", "secondary": "#FFDFD3" },
+        { "name": "🌀 Glitch", "colorType": "gradient", "primary": "#B5EAD7", "secondary": "#FFB7B2" },
+        { "name": "🔮 Chaos", "colorType": "gradient", "primary": "#C7CEEA", "secondary": "#FFDAC1" },
+        { "name": "🎪 Patchwork", "colorType": "gradient", "primary": "#FFDAC1", "secondary": "#B5EAD7" },
+        { "name": "🍬 Mosaic", "colorType": "gradient", "primary": "#FF9AA2", "secondary": "#E2F0CB" }
+      ]
+    }
+  ]
+}

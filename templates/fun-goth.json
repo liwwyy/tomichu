@@ -1,7 +1,7 @@
 {
-  "id": "dm-status-reactions",
+  "id": "fun-goth",
   "embed": {
-    "title": "DM Status",
+    "title": "Fun",
     "content": "",
     "header": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {wings_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
     "footer": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {star_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
@@ -13,10 +13,12 @@
     {
       "type": "info",
       "interaction": "reaction",
+      "exclusive": false,
       "roles": [
-        { "emoji": "1_", "name": "DMs Open" },
-        { "emoji": "2_", "name": "DMs Closed" },
-        { "emoji": "3_", "name": "Ask to DM" }
+        { "emoji": "1_", "name": "chat rev" },
+        { "emoji": "2_", "name": "b-day" },
+        { "emoji": "3_", "name": "annc" },
+        { "emoji": "4_", "name": "vc ping" }
       ]
     }
   ]

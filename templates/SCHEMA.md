@@ -7,8 +7,9 @@ wired into the bot.
 
 ```json
 {
-  "id": "pronouns-reactions",
+  "id": "pronouns-goth",
   "componentsV2": false,   // optional, defaults to false — see layout section below
+  "exclusiveAcrossSections": false,  // optional, defaults to false — see below
   "embed": { ... },         // one embed for the whole message — see below
   "sections": [ ... ]        // one or more interaction groups — see below
 }
@@ -21,6 +22,16 @@ wired into the bot.
   grouping, so mixing topics in one reaction message gets confusing fast.
 - **Dropdowns**: a template can hold up to 5 dropdown sections (Discord's
   cap on action rows per message), each rendered as its own select menu.
+- **`exclusiveAcrossSections`** — when `true`, every section marked
+  `exclusive: true` in this template shares **one combined pool** instead
+  of each staying scoped to its own section. Concretely: picking a role
+  from Rainbow in `gradient-palettes-goth` removes any role the member
+  already had from Exotic (and vice versa), since both sections opt into
+  this. Leave it `false`/absent (the default) and each exclusive section
+  stays independent — picking a role in one never touches another. This
+  works identically across dropdowns, buttons, and reactions, and mixes
+  freely between them (e.g. an exclusive dropdown and an exclusive
+  reaction section in the same template can evict each other's roles).
 
 ## Two layouts
 
@@ -29,21 +40,25 @@ wired into the bot.
 Used when `componentsV2` is absent or `false`. The embed's description is
 built from `header` / `content` / `footer` plus an auto-generated,
 indented, emoji-prefixed role-mention block per section. This is what
-`reaction-pronouns.json`, `reaction-fun.json`, `reaction-age.json`, and
-`reaction-dm-status.json` use.
+`pronouns-goth.json`, `fun-goth.json`, `age-goth.json`, and
+`dm-status-goth.json` use.
 
 ### Components V2 — card layout
 
 Used when `componentsV2: true`. Instead of an embed, the message is built
-as a single `ContainerBuilder` card: a `### {embed.title}` heading, then
-one plain role-mention block per section (**no emoji, no indent** — just
-`<@&roleId>` one per line), then each interactive element re-labeled with
-its own bold heading right above its select menu/buttons, separated by
-dividers throughout. This is what `dropdown-gradient-palettes.json` uses.
-Only `embed.title` is read in this mode — `header`/`content`/`footer`/
-`color`/`thumbnail` don't apply since Components V2 messages can't carry
-a regular embed at all (Discord requires content/embeds/poll/stickers to
-be entirely unset when the `IsComponentsV2` flag is set).
+as a single `ContainerBuilder` card: an optional `header` line, a
+`### {embed.title}` heading, then one plain role-mention block per
+section (**no emoji, no indent** — just `<@&roleId>` one per line), then
+each interactive element re-labeled with its own bold heading right
+above its select menu/buttons, an optional `footer` line at the very
+bottom, separated by dividers throughout. This is what
+`gradient-palettes-goth.json`, `alt-mix.json`, `alt-mix-2.json`, and
+`all-colors.json` use. `header` and
+`footer` work exactly like the legacy layout (same `{token}` emoji
+substitution) — only `content`/`color`/`thumbnail` don't apply, since
+Components V2 messages can't carry a regular embed at all (Discord
+requires content/embeds/poll/stickers to be entirely unset when the
+`IsComponentsV2` flag is set).
 
 ## `embed` block (legacy layout only)
 
@@ -88,7 +103,8 @@ Each section is one interactive group attached to the message.
 - `exclusive` (optional, any interaction type, default `false`) — when
   `true`, the section behaves like a radio group: selecting a new role
   automatically removes whichever other role from the *same section* the
-  member already had.
+  member already had (or from *any* exclusive section in the template, if
+  the template-level `exclusiveAcrossSections` flag above is also on).
   - **Dropdown**: forces `minValues: 1, maxValues: 1` on the select menu,
     so the UI itself only ever allows one choice.
   - **Buttons**: clicking a button removes any sibling role from the
@@ -97,7 +113,10 @@ Each section is one interactive group attached to the message.
     whichever sibling emoji the member already reacted with — *and*
     removes that old reaction from the message itself, so the message
     visually reflects the switch instead of leaving a stale reaction
-    behind.
+    behind. When a cross-section removal evicts a role that came from a
+    *different* section (a dropdown or button section, say), only the
+    role itself is removed — there's no reaction or persistent UI state
+    on those to clean up.
   - Non-exclusive sections are untouched by any of this — multiple roles
     from the same section can be held at once, exactly like before.
 

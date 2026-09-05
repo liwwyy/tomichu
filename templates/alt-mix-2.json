@@ -1,0 +1,26 @@
+{
+  "id": "gradient-alt-mix-2",
+  "componentsV2": true,
+  "embed": {
+    "title": "Colour Roles — Alt Mix 2",
+    "header": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {wings_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚",
+    "footer": "₊˚ ✧ ━━━━ ꒰ঌ ⊱ · {star_t} · ⊰ ໒꒱ ━━━━ ✧ ₊˚"
+  },
+  "sections": [
+    {
+      "title": "Alt Mix 2",
+      "type": "color",
+      "interaction": "dropdown",
+      "placeholder": "Alt Mix 2",
+      "exclusive": true,
+      "roles": [
+        { "name": "🎲 Wildcard", "colorType": "gradient", "primary": "#FFD1DC", "secondary": "#C7CEEA" },
+        { "name": "🧩 Static", "colorType": "gradient", "primary": "#E0BBE4", "secondary": "#FFDFD3" },
+        { "name": "🌀 Glitch", "colorType": "gradient", "primary": "#B5EAD7", "secondary": "#FFB7B2" },
+        { "name": "🔮 Chaos", "colorType": "gradient", "primary": "#C7CEEA", "secondary": "#FFDAC1" },
+        { "name": "🎪 Patchwork", "colorType": "gradient", "primary": "#FFDAC1", "secondary": "#B5EAD7" },
+        { "name": "🍬 Mosaic", "colorType": "gradient", "primary": "#FF9AA2", "secondary": "#E2F0CB" }
+      ]
+    }
+  ]
+}

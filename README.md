@@ -63,7 +63,8 @@ src/
   handlers/interactionCreate.js   slash command + self-role button/select dispatch
 templates/                  self-role template JSON — shared source of truth for the bot AND the website
   SCHEMA.md                   full format reference
-  reaction-*.json, dropdown-*.json
+  pronouns-goth.json, fun-goth.json, age-goth.json, dm-status-goth.json (reaction-based)
+  gradient-palettes-goth.json, alt-mix.json, alt-mix-2.json, all-colors.json (dropdown-based, Components V2)
 data/self-role-registry.json  bot-generated at runtime — never hand-edited, gitignored
 website/                    Vercel project root (see Deployment) — its own package.json, isolated deps
   build.js                    copies ../templates/*.json + generates a static showcase page
@@ -168,25 +169,33 @@ anyway.
 4. 3 seconds later, deletes both your original `,sendembed` command message and that confirmation — only the self-role message itself sticks around, so the channel doesn't accumulate command clutter every time this runs.
 
 **Two layouts, chosen per template** (`templates/SCHEMA.md` has the full spec):
-- **Legacy** (default) — a regular embed, description built from `header`/`content`/`footer` plus an indented, emoji-prefixed role-mention block per section. Used by all four reaction templates.
-- **Components V2** (`"componentsV2": true`) — a Container-based card instead of an embed: a `### title` heading, a plain `<@&role>`-per-line preview block per section (no emoji, no indent), then each interactive element re-labeled with its own heading right above it. Used by `gradient-palettes`.
+- **Legacy** (default) — a regular embed, description built from `header`/`content`/`footer` plus an indented, emoji-prefixed role-mention block per section. Used by `pronouns-goth`, `fun-goth`, `age-goth`, `dm-status-goth`.
+- **Components V2** (`"componentsV2": true`) — a Container-based card instead of an embed: an optional header line, a `### title` heading, a plain `<@&role>`-per-line preview block per section (no emoji, no indent), then each interactive element re-labeled with its own heading right above it, an optional footer line at the very bottom. Used by `gradient-palettes-goth`, `alt-mix`, `alt-mix-2`, `all-colors`.
 
 **Exclusive sections** (`"exclusive": true` on any section, any interaction type) — makes that group behave like a radio button instead of independent toggles: picking a new option automatically removes whichever sibling role from the same section the member already had.
 - Dropdowns get `minValues: 1, maxValues: 1` so the UI itself only allows one pick.
 - Buttons remove the sibling role before adding the new one.
 - Reactions remove the sibling role *and* the member's old reaction from the message, so it visually reflects the switch instead of leaving a stale reaction sitting there.
 
-Both `gradient-palettes` dropdown sections (Rainbow, Exotic) are exclusive — you can only hold one color role at a time from each. `fun-reactions` stays non-exclusive, so multiple ping roles can be held at once, same as before.
+**Cross-section exclusivity** (`"exclusiveAcrossSections": true` at the *template* level) — widens that pool so every exclusive section in the template shares it, not just each section individually. `gradient-palettes-goth` and `all-colors` both use this: picking a color from Rainbow removes whatever you'd previously picked from Exotic (or Alt Mix, in `all-colors`), and vice versa, so you can only ever hold one color role total across every group in the message. Leave it off (the default) and exclusive sections stay independent of each other, like `dm-status-goth`'s single section does on its own.
+
+All four reaction-based templates: `pronouns-goth` and `age-goth` stay non-exclusive (multiple picks make sense there). `fun-goth` is also non-exclusive — multiple ping roles can be held at once (the bump-ping role has been removed from it). `dm-status-goth` is exclusive — DMs Open/Closed/Ask-to-DM are mutually exclusive states, so picking one now removes whichever of the others you had, reaction included.
 
 **How the rest of it works:**
 - **Role-mention preview** — always generated fresh from the actual created role IDs, never something you write into the template by hand.
 - **Buttons** — each button's role ID is baked straight into its `custom_id`. Toggling is stateless; the registry is only consulted to check whether the button's section is exclusive.
-- **Dropdowns (select menus)** — up to 5 groups per message, each its own select menu. On selection, the full option set for that menu is read from `data/self-role-registry.json` (keyed by message + section index) to correctly add newly-selected roles and remove deselected ones.
+- **Dropdowns (select menus)** — up to 5 groups per message, each its own select menu. On selection, the full option set for that menu (or, if cross-section exclusive, every exclusive section's roles) is read from `data/self-role-registry.json` (keyed by message + section index) to correctly add newly-selected roles and remove deselected ones.
 - **Reactions** — a reaction alone can't carry any data, so `messageId + emoji name` is looked up in the same registry to find the bound role. This is why reactions specifically need the `data/self-role-registry.json` file to persist across restarts — buttons/dropdowns lean on registry data too now (for the exclusive flag), but a button's core role-toggle still works even without it.
-- **Emoji** — every emoji in a template (decorative header/footer tokens like `{wings_t}`, or a role's own emoji like `1_`) is resolved against tomichu's own application emojis (uploaded via the Discord Developer Portal) at send-time. Templates never hardcode a snowflake ID, since those are per-bot and would break the moment a different bot account is used. Dropdown roles can also bake an emoji straight into the role's `name` instead (e.g. `"❤️ Red"`) — that's what `gradient-palettes` does, so the emoji becomes part of the actual role name rather than a separate select-option icon.
+- **Emoji** — every emoji in a template (decorative header/footer tokens like `{wings_t}`, or a role's own emoji like `1_`) is resolved against tomichu's own application emojis (uploaded via the Discord Developer Portal) at send-time. Templates never hardcode a snowflake ID, since those are per-bot and would break the moment a different bot account is used. Dropdown roles can also bake an emoji straight into the role's `name` instead (e.g. `"❤️ Red"`) — that's what the gradient templates do, so the emoji becomes part of the actual role name rather than a separate select-option icon.
 - **Role colors** — `colorType: "gradient"` and `"holographic"` need the guild to be boosted enough for Discord's enhanced role colors. If role creation fails for that reason, tomichu automatically retries as a plain solid color instead of failing the whole template, and logs a warning so it's visible why a role isn't gradient/holographic.
-- **Reusing roles** — before creating any role (from a template, or from the commands below), tomichu checks for an existing role with the same name (case-insensitive) and reuses it instead of duplicating.
+- **Reusing roles** — before creating any role (from a template, or from the commands below), tomichu checks for an existing role with the same name (case-insensitive) and reuses it instead of duplicating. This also means the same "❤️ Red" role gets reused across `gradient-palettes-goth`, `all-colors`, etc. rather than duplicated per template.
 - **Zero permissions** — every role tomichu creates gets an explicit empty permission set. Leaving `permissions` unset makes Discord silently copy whatever `@everyone` currently has onto the new role — this sidesteps that entirely.
+
+**The four gradient/color templates:**
+- `gradient-palettes-goth` — **Rainbow** (8 pastel colors incl. white) + **Exotic** (7 pastel flower hues, deliberately varied rather than all-pink, + the one Holographic role), cross-section exclusive
+- `alt-mix` — 6 roles, each a deliberately contrasting primary/secondary duotone (e.g. peach + cool blue)
+- `alt-mix-2` — 6 roles, intentionally incoherent/random pastel pairs, no unifying theme
+- `all-colors` — all four groups above (Rainbow, Exotic, Alt Mix, Alt Mix 2 — 4 sections, 28 roles total) combined into one message, cross-section exclusive across all of them
 
 ### Roles
 - `,mkroles <name1, name2, name3>` — creates multiple roles at once from a comma-separated list (max 25 per call), skipping any that already exist by name
